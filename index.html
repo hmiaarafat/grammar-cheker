@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proof — UK English Grammar Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #1a1a18;
+    --paper: #f5f2eb;
+    --muted: #8a8578;
+    --line: #ddd9d0;
+    --red: #c0392b;
+    --green: #27613a;
+    --amber: #b5641c;
+    --blue: #1a5276;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Lora', Georgia, serif;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: 0 1.5rem;
+  }
+
+  header {
+    padding: 2.2rem 0 1.4rem;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+  }
+
+  .wordmark {
+    font-size: 1.05rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    border: 1px solid var(--line);
+    padding: 0.15em 0.5em;
+    border-radius: 2px;
+  }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .pane {
+    padding: 2rem 1.5rem 2rem 0;
+  }
+
+  .pane.right {
+    padding: 2rem 0 2rem 2rem;
+    border-left: 1px solid var(--line);
+  }
+
+  .pane-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  textarea {
+    width: 100%;
+    height: 340px;
+    resize: none;
+    border: none;
+    background: transparent;
+    font-family: 'Lora', Georgia, serif;
+    font-size: 1rem;
+    line-height: 1.75;
+    color: var(--ink);
+    outline: none;
+    caret-color: var(--red);
+  }
+
+  textarea::placeholder {
+    color: #bbb6ad;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.2rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid var(--line);
+  }
+
+  .btn-check {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    padding: 0.6em 1.4em;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-check:hover { opacity: 0.8; }
+  .btn-check:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-clear {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s;
+  }
+  .btn-clear:hover { color: var(--ink); }
+
+  .char-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  /* Results */
+  .results-empty {
+    color: #bbb6ad;
+    font-style: italic;
+    font-size: 0.95rem;
+    line-height: 1.8;
+    padding-top: 0.2rem;
+  }
+
+  .spinner {
+    display: none;
+    align-items: center;
+    gap: 0.7rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-style: italic;
+  }
+
+  .spinner.active { display: flex; }
+
+  .dot-pulse {
+    display: flex;
+    gap: 4px;
+  }
+
+  .dot-pulse span {
+    width: 5px; height: 5px;
+    background: var(--muted);
+    border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes pulse {
+    0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  .summary-line {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 1.4rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .summary-line .count {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .no-issues {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--green);
+    font-size: 0.9rem;
+  }
+
+  .no-issues::before {
+    content: '✓';
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+  }
+
+  .issue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    overflow-y: auto;
+    max-height: 440px;
+    padding-right: 0.3rem;
+  }
+
+  .issue-list::-webkit-scrollbar { width: 3px; }
+  .issue-list::-webkit-scrollbar-track { background: transparent; }
+  .issue-list::-webkit-scrollbar-thumb { background: var(--line); }
+
+  .issue {
+    padding: 0.9rem 1rem;
+    border-left: 2.5px solid var(--line);
+    animation: fadeIn 0.25s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .issue.error   { border-color: var(--red); }
+  .issue.warning { border-color: var(--amber); }
+  .issue.style   { border-color: var(--blue); }
+
+  .issue-type {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+  }
+
+  .issue.error   .issue-type { color: var(--red); }
+  .issue.warning .issue-type { color: var(--amber); }
+  .issue.style   .issue-type { color: var(--blue); }
+
+  .issue-original {
+    font-size: 0.88rem;
+    color: var(--muted);
+    text-decoration: line-through;
+    font-style: italic;
+    margin-bottom: 0.2rem;
+  }
+
+  .issue-suggestion {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+  }
+
+  .issue-explanation {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  .error-msg {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--red);
+    margin-top: 0.6rem;
+  }
+
+  footer {
+    padding: 1.2rem 0;
+    border-top: 1px solid var(--line);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-align: center;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr; }
+    .pane { padding: 1.5rem 0; }
+    .pane.right { padding: 1.5rem 0; border-left: none; border-top: 1px solid var(--line); }
+    textarea { height: 220px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="wordmark">Proof</span>
+  <span class="tag">UK English</span>
+</header>
+
+<main>
+  <div class="pane left">
+    <div class="pane-label">Your text</div>
+    <textarea id="inputText" placeholder="Paste or type your text here…" spellcheck="false"></textarea>
+    <div class="controls">
+      <button class="btn-check" id="checkBtn" onclick="checkGrammar()">Check</button>
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+      <span class="char-count" id="charCount">0 chars</span>
+    </div>
+  </div>
+
+  <div class="pane right">
+    <div class="pane-label">Suggestions</div>
+
+    <div class="spinner" id="spinner">
+      <div class="dot-pulse">
+        <span></span><span></span><span></span>
+      </div>
+      Checking…
+    </div>
+
+    <div id="results">
+      <p class="results-empty">Your corrections will appear here.</p>
+    </div>
+  </div>
+</main>
+
+<footer>Powered by Claude · Checks grammar, spelling &amp; style in British English</footer>
+
+<script>
+const inputEl = document.getElementById('inputText');
+const charCountEl = document.getElementById('charCount');
+const checkBtn = document.getElementById('checkBtn');
+const spinner = document.getElementById('spinner');
+const results = document.getElementById('results');
+
+inputEl.addEventListener('input', () => {
+  const n = inputEl.value.length;
+  charCountEl.textContent = `${n} char${n !== 1 ? 's' : ''}`;
+});
+
+function clearAll() {
+  inputEl.value = '';
+  charCountEl.textContent = '0 chars';
+  results.innerHTML = '<p class="results-empty">Your corrections will appear here.</p>';
+}
+
+async function checkGrammar() {
+  const text = inputEl.value.trim();
+  if (!text) return;
+
+  checkBtn.disabled = true;
+  spinner.classList.add('active');
+  results.innerHTML = '';
+
+  const systemPrompt = `You are a meticulous British English grammar and style editor. Analyse the user's text and return ONLY a JSON object — no markdown, no preamble.
+
+The JSON must have this structure:
+{
+  "issues": [
+    {
+      "type": "error" | "warning" | "style",
+      "original": "the problematic phrase or word",
+      "suggestion": "the corrected version",
+      "explanation": "brief explanation in one sentence"
+    }
+  ]
+}
+
+Rules:
+- Use British English conventions: -ise not -ize, colour not color, travelled not traveled, etc.
+- "error" = clear grammatical or spelling mistake
+- "warning" = likely mistake or awkward construction
+- "style" = stylistic improvement suggestion
+- If no issues, return { "issues": [] }
+- Keep explanations short and clear
+- Return valid JSON only`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: text }]
+      })
+    });
+
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    renderResults(parsed.issues || []);
+  } catch (e) {
+    results.innerHTML = `<p class="error-msg">Something went wrong. Please try again.</p>`;
+  } finally {
+    checkBtn.disabled = false;
+    spinner.classList.remove('active');
+  }
+}
+
+function renderResults(issues) {
+  if (issues.length === 0) {
+    results.innerHTML = `
+      <div class="summary-line"><span class="count">0</span> issues found</div>
+      <div class="no-issues">No issues — your text looks good.</div>`;
+    return;
+  }
+
+  const errors   = issues.filter(i => i.type === 'error').length;
+  const warnings = issues.filter(i => i.type === 'warning').length;
+  const styles   = issues.filter(i => i.type === 'style').length;
+
+  let summary = [];
+  if (errors)   summary.push(`<span class="count">${errors}</span> error${errors > 1 ? 's' : ''}`);
+  if (warnings) summary.push(`<span class="count">${warnings}</span> warning${warnings > 1 ? 's' : ''}`);
+  if (styles)   summary.push(`<span class="count">${styles}</span> style suggestion${styles > 1 ? 's' : ''}`);
+
+  let html = `<div class="summary-line">${summary.join(' · ')}</div><div class="issue-list">`;
+
+  for (const issue of issues) {
+    html += `
+      <div class="issue ${issue.type}">
+        <div class="issue-type">${issue.type}</div>
+        ${issue.original ? `<div class="issue-original">${escHtml(issue.original)}</div>` : ''}
+        <div class="issue-suggestion">${escHtml(issue.suggestion)}</div>
+        <div class="issue-explanation">${escHtml(issue.explanation)}</div>
+      </div>`;
+  }
+
+  html += '</div>';
+  results.innerHTML = html;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Allow Ctrl+Enter to check
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) checkGrammar();
+});
+</script>
+</body>
+</html>
